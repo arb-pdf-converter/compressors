@@ -1,14 +1,13 @@
 services:
   - type: web
-    name: pdf-compressor
+    name: pdf-compressor-service
     env: node
-    plan: free
     buildCommand: npm install
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
     disk:
-      name: data
+      name: pdf-storage
       mountPath: /opt/render/project/src/uploads
       sizeGB: 1

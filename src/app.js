@@ -1,51 +1,64 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+const multer = require('multer'); // ✅ FIXED: Add this import
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const pdfController = require('./controllers/pdfController');
-const { upload } = require('./middleware/multerConfig');
-const cleanup = require('./utils/fileCleanup');
 
 const app = express();
 
-// Security middleware
+// Middleware
 app.use(helmet());
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-frontend.com'] 
-    : true
-}));
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // limit each IP to 10 requests per windowMs
-  message: 'Too many requests, please try again later.'
-});
-app.use('/api/compress', limiter);
-
-// Body parsing
+app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-const storage = multer.diskStorage({
-  destination: '/app/uploads/',  // ✅ Render disk path
-  filename: (req, file, cb) => cb(null, `input_${Date.now()}.pdf`)
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Too many requests'
 });
-// Serve static files (optional download links)
-app.use('/downloads', express.static('/app/uploads'));
+app.use('/api/compress', limiter);
+
+// ✅ Multer storage for Render disk
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, `input_${Date.now()}_${file.originalname}`);
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype === 'application/pdf') {
+    cb(null, true);
+  } else {
+    cb(new Error('Only PDF files allowed!'), false);
+  }
+};
+
+const upload = multer({ 
+  storage, 
+  fileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+});
 
 // Routes
 app.post('/api/compress', upload.single('pdf'), pdfController.compressPDF);
-app.get('/api/health', (req, res) => res.json({ status: 'OK' }));
+app.get('/api/health', (req, res) => res.json({ status: 'OK', timestamp: new Date().toISOString() }));
+app.get('/', (req, res) => res.send('<h1>🚀 PDF Compressor API is Live!</h1><p><a href="/test">Test Page</a></p>'));
 
-// Cleanup old files every 30 minutes
-setInterval(cleanup.cleanupOldFiles, 30 * 60 * 1000);
+// Serve downloads & test page
+app.use('/downloads', express.static('uploads'));
+app.use(express.static('public'));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🚀 PDF Compressor running on port ${PORT}`);
+  console.log(`📁 Uploads: /opt/render/project/src/uploads`);
 });

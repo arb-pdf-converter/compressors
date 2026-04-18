@@ -1,43 +1,44 @@
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const { exec } = require('child_process');
-const util = require('util');
-const fs = require('fs').promises;
-const execAsync = util.promisify(exec);
-
 const compressPDF = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No PDF file uploaded' });
+      return res.status(400).json({ error: 'No PDF uploaded' });
     }
 
+    const { level = '50' } = req.body; // ✅ Get level from frontend
     const inputPath = req.file.path;
-    const outputFilename = `compressed_${uuidv4()}.pdf`;
+    const outputFilename = `compressed_${level}_${uuidv4()}.pdf`;
     const outputPath = path.join(__dirname, '../../uploads', outputFilename);
 
-    console.log(`Compressing ${path.basename(inputPath)}`);
+    // ✅ Compression levels mapping
+    const levels = {
+      '30': { gsSetting: '/printer', expectedSavings: '25-35%' },
+      '50': { gsSetting: '/ebook', expectedSavings: '45-65%' },   // Default
+      '80': { gsSetting: '/screen', expectedSavings: '70-90%' }
+    };
 
-    // ✅ GHOSTSCRIPT - Real 50-70% compression
+    const config = levels[level] || levels['50'];
+    
+    console.log(`Compressing with ${level}% level (${config.gsSetting})`);
+
+    // ✅ Dynamic Ghostscript command
     const gsCommand = `gs \
       -sDEVICE=pdfwrite \
       -dCompatibilityLevel=1.4 \
-      -dPDFSETTINGS=/ebook \
+      -dPDFSETTINGS=${config.gsSetting} \
       -dNOPAUSE -dBATCH -dQUIET \
       -sOutputFile="${outputPath}" \
       "${inputPath}"`;
 
     await execAsync(gsCommand, { timeout: 120000 });
 
-    // Get sizes
     const inputSize = (await fs.stat(inputPath)).size;
     const outputSize = (await fs.stat(outputPath)).size;
-
-    // Cleanup input
     await fs.unlink(inputPath);
 
     res.json({
       success: true,
-      message: 'PDF compressed successfully!',
+      level: level,
+      expectedSavings: config.expectedSavings,
       originalSize: inputSize,
       compressedSize: outputSize,
       compressionRatio: ((1 - outputSize / inputSize) * 100).toFixed(1),
@@ -45,23 +46,6 @@ const compressPDF = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Compression error:', error);
-    res.status(500).json({ 
-      error: 'Compression failed', 
-      message: error.message,
-      gsAvailable: await checkGhostscript()
-    });
+    res.status(500).json({ error: error.message });
   }
 };
-
-// Check if Ghostscript is installed
-async function checkGhostscript() {
-  try {
-    await execAsync('gs --version');
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-module.exports = { compressPDF };

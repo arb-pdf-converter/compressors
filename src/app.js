@@ -31,8 +31,12 @@ app.use('/api/compress', limiter);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+const storage = multer.diskStorage({
+  destination: '/app/uploads/',  // ✅ Render disk path
+  filename: (req, file, cb) => cb(null, `input_${Date.now()}.pdf`)
+});
 // Serve static files (optional download links)
-app.use('/downloads', express.static(path.join(__dirname, '../uploads')));
+app.use('/downloads', express.static('/app/uploads'));
 
 // Routes
 app.post('/api/compress', upload.single('pdf'), pdfController.compressPDF);

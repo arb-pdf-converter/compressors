@@ -1,12 +1,16 @@
 services:
   - type: web
     name: pdf-compressor-service
-    env: docker  # ✅ Changed to Docker
-    dockerfilePath: ./Dockerfile  # ✅ Custom Dockerfile
+    env: node
+    buildCommand: |
+      apt-get update -qq > /dev/null
+      apt-get install -y ghostscript
+      npm ci --only=production
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
     disk:
       name: pdf-storage
-      mountPath: /app/uploads
-      sizeGB: 2
+      mountPath: /opt/render/project/src/uploads
+      sizeGB: 1

@@ -1,44 +1,55 @@
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const { exec } = require('child_process');
+const util = require('util');
+const fs = require('fs').promises;
+const execAsync = util.promisify(exec);
+
 const compressPDF = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No PDF uploaded' });
     }
 
-    const { level = '50' } = req.body; // ✅ Get level from frontend
+    const { level = '50' } = req.body;
     const inputPath = req.file.path;
     const outputFilename = `compressed_${level}_${uuidv4()}.pdf`;
     const outputPath = path.join(__dirname, '../../uploads', outputFilename);
 
-    // ✅ Compression levels mapping
+    // Compression levels
     const levels = {
-      '30': { gsSetting: '/printer', expectedSavings: '25-35%' },
-      '50': { gsSetting: '/ebook', expectedSavings: '45-65%' },   // Default
-      '80': { gsSetting: '/screen', expectedSavings: '70-90%' }
+      '30': '/printer',
+      '50': '/ebook',
+      '80': '/screen'
     };
 
-    const config = levels[level] || levels['50'];
+    const gsSetting = levels[level] || levels['50'];
     
-    console.log(`Compressing with ${level}% level (${config.gsSetting})`);
+    console.log(`🔄 Compressing ${level}% (${gsSetting}): ${path.basename(inputPath)}`);
 
-    // ✅ Dynamic Ghostscript command
+    // Ghostscript command
     const gsCommand = `gs \
       -sDEVICE=pdfwrite \
       -dCompatibilityLevel=1.4 \
-      -dPDFSETTINGS=${config.gsSetting} \
+      -dPDFSETTINGS=${gsSetting} \
       -dNOPAUSE -dBATCH -dQUIET \
       -sOutputFile="${outputPath}" \
       "${inputPath}"`;
 
     await execAsync(gsCommand, { timeout: 120000 });
 
+    // Calculate sizes
     const inputSize = (await fs.stat(inputPath)).size;
     const outputSize = (await fs.stat(outputPath)).size;
-    await fs.unlink(inputPath);
+    
+    // Cleanup input file
+    await fs.unlink(inputPath).catch(console.error);
+
+    console.log(`✅ ${((1 - outputSize / inputSize) * 100).toFixed(1)}% compressed`);
 
     res.json({
       success: true,
-      level: level,
-      expectedSavings: config.expectedSavings,
+      level,
       originalSize: inputSize,
       compressedSize: outputSize,
       compressionRatio: ((1 - outputSize / inputSize) * 100).toFixed(1),
@@ -46,6 +57,13 @@ const compressPDF = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Compression failed:', error.message);
+    res.status(500).json({ 
+      error: 'Compression failed', 
+      message: error.message 
+    });
   }
 };
+
+// ✅ EXPORT FIXED
+module.exports = { compressPDF };

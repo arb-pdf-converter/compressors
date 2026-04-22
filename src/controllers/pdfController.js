@@ -27,14 +27,13 @@ const compressPDF = async (req, res) => {
     
     console.log(`🔄 Compressing ${level}% (${gsSetting}): ${path.basename(inputPath)}`);
 
+    const fsSync = require('fs');
+
+    console.log("INPUT PATH:", inputPath);
+    console.log("FILE EXISTS:", fsSync.existsSync(inputPath));
+
     // Ghostscript command
-    const gsCommand = `gs \
-      -sDEVICE=pdfwrite \
-      -dCompatibilityLevel=1.4 \
-      -dPDFSETTINGS=${gsSetting} \
-      -dNOPAUSE -dBATCH -dQUIET \
-      -sOutputFile="${outputPath}" \
-      "${inputPath}"`;
+    const gsCommand = `gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=${gsSetting} -dNOPAUSE -dBATCH -dQUIET -sOutputFile="${outputPath}" "${inputPath}"`;
 
     await execAsync(gsCommand, { timeout: 120000 });
 
@@ -57,12 +56,15 @@ const compressPDF = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Compression failed:', error.message);
-    res.status(500).json({ 
-      error: 'Compression failed', 
-      message: error.message 
-    });
-  }
+  console.error("FULL GS ERROR:", error);
+  console.error("STDERR:", error.stderr);
+  console.error("STDOUT:", error.stdout);
+
+  return res.status(500).json({
+    error: "Compression failed",
+    message: error.message,
+  });
+}
 };
 
 // ✅ EXPORT FIXED

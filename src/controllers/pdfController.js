@@ -22,7 +22,11 @@ const compressPDF = async (req, res) => {
 
     const { level = '50' } = req.body;
     const inputPath = req.file.path;
+    const fsSync = require("fs");
 
+    console.log("INPUT PATH:", inputPath);
+    console.log("INPUT EXISTS:", fsSync.existsSync(inputPath));
+    console.log("INPUT SIZE:", fsSync.existsSync(inputPath) ? fsSync.statSync(inputPath).size : "missing");
     const levels = {
       '30': '/printer',
       '50': '/ebook',

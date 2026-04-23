@@ -1,3 +1,11 @@
+const { execSync } = require("child_process");
+
+try {
+  console.log("GS VERSION:", execSync("gs --version").toString());
+  console.log("GS PATH:", execSync("which gs || where gs").toString());
+} catch (err) {
+  console.error("❌ Ghostscript NOT available:", err.message);
+}
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -22,7 +30,24 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+app.get("/test-gs", (req, res) => {
+  const { exec } = require("child_process");
 
+  exec("gs -h", (err, stdout, stderr) => {
+    if (err) {
+      return res.status(500).json({
+        error: "Ghostscript not working",
+        details: err.message,
+        stderr
+      });
+    }
+
+    res.json({
+      success: true,
+      output: stdout
+    });
+  });
+});
 
 app.get("/test-gs", async (req, res) => {
   const { exec } = require("child_process");

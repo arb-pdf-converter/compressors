@@ -63,7 +63,7 @@ const compressPDF = async (req, res) => {
     await fs.unlink(inputPath).catch(console.error);
     
     console.log(`✅ ${((1 - outputSize / inputSize) * 100).toFixed(1)}% compressed`);
-    const stats = await fs.stat(outputPath);
+    
 
     if (stats.size < 2000) {
         throw new Error("Output file is too small → GS failed");

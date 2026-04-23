@@ -11,10 +11,16 @@ const compressPDF = async (req, res) => {
       return res.status(400).json({ error: 'No PDF uploaded' });
     }
 
+    const fs = require("fs");
+
+    if (!fs.existsSync("uploads")) {
+        fs.mkdirSync("uploads");
+    }
+
     const { level = '50' } = req.body;
     const inputPath = req.file.path;
     const outputFilename = `compressed_${level}_${uuidv4()}.pdf`;
-    const outputPath = path.join(__dirname, '../../uploads', outputFilename);
+    const outputPath = path.resolve('uploads', outputFilename);
 
     // Compression levels
     const levels = {
@@ -33,6 +39,8 @@ const compressPDF = async (req, res) => {
     if (stats.size < 2000) {
         throw new Error("Output file is too small → GS failed");
     }
+    const fsSync = require("fs");
+
     console.log("INPUT PATH:", inputPath);
     console.log("FILE EXISTS:", fsSync.existsSync(inputPath));
 
@@ -46,10 +54,11 @@ const compressPDF = async (req, res) => {
       console.log("GS STDERR:", result.stderr);
 
     } catch (error) {
-      console.error("GS FAILED:", error);
-      console.error("STDERR:", error.stderr);
+        console.error("❌ GS FAILED:", error);
+        console.error("STDERR:", error.stderr);
+        console.error("STDOUT:", error.stdout);
 
-      return res.status(500).json({
+        return res.status(500).json({
         error: "Compression failed",
         message: error.message
       });

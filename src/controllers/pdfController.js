@@ -12,40 +12,39 @@ const compressPDF = async (req, res) => {
     }
 
     const fs = require("fs");
+    const path = require("path");
+    const { v4: uuidv4 } = require('uuid');
 
+    // Ensure uploads folder exists
     if (!fs.existsSync("uploads")) {
-        fs.mkdirSync("uploads");
+      fs.mkdirSync("uploads", { recursive: true });
     }
 
     const { level = '50' } = req.body;
     const inputPath = req.file.path;
-    const outputFilename = `compressed_${level}_${uuidv4()}.pdf`;
-    const outputPath = path.resolve('uploads', outputFilename);
 
-    // Compression levels
     const levels = {
       '30': '/printer',
       '50': '/ebook',
       '80': '/screen'
     };
 
-    const gsSetting = levels[level] || levels['50'];
-    
-    console.log(`🔄 Compressing ${level}% (${gsSetting}): ${path.basename(inputPath)}`);
+    const gsSetting = levels[level] || '/ebook';
 
-    const fsSync = require('fs');
-    const stats = await fs.stat(outputPath);
+    const outputFilename = `compressed_${level}_${uuidv4()}.pdf`;
+    const outputPath = path.resolve('uploads', outputFilename);
 
-    if (stats.size < 2000) {
-        throw new Error("Output file is too small → GS failed");
+    console.log("INPUT:", inputPath);
+    console.log("OUTPUT:", outputPath);
+    console.log("LEVEL:", gsSetting);
+
+    // 🔥 IMPORTANT: delete old output if exists
+    if (fs.existsSync(outputPath)) {
+      fs.unlinkSync(outputPath);
     }
-    
 
-    console.log("INPUT PATH:", inputPath);
-    console.log("FILE EXISTS:", fsSync.existsSync(inputPath));
-
-    // Ghostscript command
-    const gsCommand = `gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook -dNOPAUSE -dBATCH -sOutputFile="${outputPath}" "${inputPath}"`;
+    // Ghostscript command (FIXED)
+    const gsCommand = `gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=${gsSetting} -dNOPAUSE -dBATCH -sOutputFile="${outputPath}" "${inputPath}"`;
 
     try {
       const result = await execAsync(gsCommand, { timeout: 120000 });
@@ -54,31 +53,34 @@ const compressPDF = async (req, res) => {
       console.log("GS STDERR:", result.stderr);
 
     } catch (error) {
-        console.error("❌ GS FAILED:", error);
-        console.error("STDERR:", error.stderr);
-        console.error("STDOUT:", error.stdout);
+      console.error("❌ Ghostscript failed:");
+      console.error(error.stderr || error.message);
 
-        return res.status(500).json({
+      return res.status(500).json({
         error: "Compression failed",
         message: error.message
       });
     }
 
-    // Calculate sizes
-    const inputSize = (await fs.stat(inputPath)).size;
-    const outputSize = (await fs.stat(outputPath)).size;
-    
-    // Cleanup input file
-    await fs.unlink(inputPath).catch(console.error);
-    
-    console.log(`✅ ${((1 - outputSize / inputSize) * 100).toFixed(1)}% compressed`);
-    
-
-    if (stats.size < 2000) {
-        throw new Error("Output file is too small → GS failed");
+    // ✅ NOW validate AFTER GS runs
+    if (!fs.existsSync(outputPath)) {
+      throw new Error("Output file was not created (Ghostscript failed)");
     }
-    
-    res.json({
+
+    const inputSize = (await fs.promises.stat(inputPath)).size;
+    const outputSize = (await fs.promises.stat(outputPath)).size;
+
+    console.log("INPUT SIZE:", inputSize);
+    console.log("OUTPUT SIZE:", outputSize);
+
+    if (outputSize < 2000) {
+      throw new Error("Output PDF is too small → likely corrupted Ghostscript output");
+    }
+
+    // Cleanup input
+    await fs.promises.unlink(inputPath).catch(console.error);
+
+    return res.json({
       success: true,
       level,
       originalSize: inputSize,
@@ -88,15 +90,13 @@ const compressPDF = async (req, res) => {
     });
 
   } catch (error) {
-  console.error("FULL GS ERROR:", error);
-  console.error("STDERR:", error.stderr);
-  console.error("STDOUT:", error.stdout);
+    console.error("FULL ERROR:", error);
 
-  return res.status(500).json({
-    error: "Compression failed",
-    message: error.message,
-  });
-}
+    return res.status(500).json({
+      error: "Compression failed",
+      message: error.message,
+    });
+  }
 };
 
 // ✅ EXPORT FIXED

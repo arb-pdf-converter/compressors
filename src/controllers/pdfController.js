@@ -39,7 +39,7 @@ const compressPDF = async (req, res) => {
     if (stats.size < 2000) {
         throw new Error("Output file is too small → GS failed");
     }
-    const fsSync = require("fs");
+    
 
     console.log("INPUT PATH:", inputPath);
     console.log("FILE EXISTS:", fsSync.existsSync(inputPath));

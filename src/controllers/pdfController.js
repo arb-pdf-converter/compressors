@@ -44,13 +44,28 @@ const compressPDF = async (req, res) => {
     }
 
     // Ghostscript command (FIXED)
-    const gsCommand = `gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=${gsSetting} -dNOPAUSE -dBATCH -sOutputFile="${outputPath}" "${inputPath}"`;
+    const gsCommand = [
+      "gs",
+      "-sDEVICE=pdfwrite",
+      "-dCompatibilityLevel=1.4",
+      `-dPDFSETTINGS=${gsSetting}`,
+      "-dNOPAUSE",
+      "-dBATCH",
+      "-dSAFER",
+      "-dQUIET",
+      "-dDetectDuplicateImages=true",
+      "-dCompressFonts=true",
+      `-sOutputFile=${outputPath}`,
+      inputPath
+    ].join(" ");
 
     try {
       const result = await execAsync(gsCommand, { timeout: 120000 });
 
-      console.log("GS STDOUT:", result.stdout);
-      console.log("GS STDERR:", result.stderr);
+      const fsSync = require("fs");
+
+      console.log("OUTPUT EXISTS:", fsSync.existsSync(outputPath));
+      console.log("OUTPUT SIZE:", fsSync.existsSync(outputPath) ? fsSync.statSync(outputPath).size : "missing");
 
     } catch (error) {
       console.error("❌ Ghostscript failed:");

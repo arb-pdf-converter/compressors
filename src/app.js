@@ -104,7 +104,8 @@ app.get('/api/health', (req, res) => res.json({ status: 'OK', timestamp: new Dat
 app.get('/', (req, res) => res.send('<h1>🚀 PDF Compressor API is Live!</h1><p><a href="/test">Test Page</a></p>'));
 
 // Serve downloads & test page
-app.use('/downloads', express.static('uploads'));
+const uploadsPath = path.resolve(__dirname, '../uploads');
+app.use('/downloads', express.static(uploadsPath));
 app.use(express.static('public'));
 
 const PORT = process.env.PORT || 3000;

@@ -105,7 +105,7 @@ const compressPDF = async (req, res) => {
       originalSize: inputSize,
       compressedSize: outputSize,
       compressionRatio: ((1 - outputSize / inputSize) * 100).toFixed(1),
-      downloadUrl: `${req.protocol}://${req.get('host')}/downloads/${outputFilename}`
+      downloadUrl: `/downloads/${outputFilename}`
     });
 
   } catch (error) {

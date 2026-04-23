@@ -77,7 +77,9 @@ const compressPDF = async (req, res) => {
 
       return res.status(500).json({
         error: "Compression failed",
-        message: error.message
+        message: error.message,
+        stderr: error.stderr || null,
+        stdout: error.stdout || null
       });
     }
 

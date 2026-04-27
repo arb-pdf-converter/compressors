@@ -1,9 +1,9 @@
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const util = require('util');
 const fs = require('fs').promises;
-const execAsync = util.promisify(exec);
+const execAsync = util.promisify(execFile);
 
 const compressPDF = async (req, res) => {
   try {
@@ -59,12 +59,26 @@ const compressPDF = async (req, res) => {
       "-dQUIET",
       "-dDetectDuplicateImages=true",
       "-dCompressFonts=true",
-      `-sOutputFile=${outputPath}`,
-      inputPath
+      `-sOutputFile="${outputPath}"`,   // ✅ wrap in quotes
+      `"${inputPath}"`                 // ✅ wrap in quotes
     ].join(" ");
 
     try {
-      const result = await execAsync(gsCommand, { timeout: 120000 });
+      const args = [
+        "-sDEVICE=pdfwrite",
+        "-dCompatibilityLevel=1.4",
+        `-dPDFSETTINGS=${gsSetting}`,
+        "-dNOPAUSE",
+        "-dBATCH",
+        "-dSAFER",
+        "-dQUIET",
+        "-dDetectDuplicateImages=true",
+        "-dCompressFonts=true",
+        `-sOutputFile=${outputPath}`,
+        inputPath
+      ];
+
+      await execAsync("gs", args, { timeout: 120000 });
 
       const fsSync = require("fs");
 
